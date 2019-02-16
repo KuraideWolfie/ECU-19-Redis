@@ -1,11 +1,13 @@
-# Ignores the corpora files
+# Corpora files
 data/cor
 data/ign
 data/lic
 data/notes.txt
 
-# Ignores batch files for accessing database via terminal
+# Batch files for accessing database via terminal
+# ECU Redis node information (SHOULD NOT BE PUBLIC)
 bat
+doc/redis-info.txt
 
-# Ignores python or other misc folders
+# Python cache
 __pycache__
