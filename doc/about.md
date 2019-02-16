@@ -1,4 +1,4 @@
-# Introduction
+# Redis and Gutenberg
 **Title**: ECU-19-Redis
 <br />
 **Author**: Matthew Morgan
@@ -12,6 +12,9 @@ This project is being developed as a research project for the NSF grant provided
 
 # **Requirements**
 **Language(s)**: Python v3.7.2
+<br />
+**Software**:
++ Redis version 5.0.3, available at https://redis.io/download
 
 ### **Python Extensions**
 + `sudo pip install redis-py-cluster`
