@@ -1,0 +1,7 @@
+Title: Sample Document 00
+Author: Matthew Morgan
+Date: 6 February 2019 [EBOOK #00]
+Languages: English
+Text:
+
+This is the first sample document. It contains 10 words.

@@ -22,3 +22,5 @@ This project is being developed as a research project for the NSF grant provided
 ### **Other Resources**
 + https://tartarus.org/martin/PorterStemmer/
   + Porter Stemmer algorithm, stemming tokens such as 'stealing' --> 'steal'
++ http://www.gutenberg.org/files/
+  + Gutenberg Corpora file repository, where all corpora files are accessible

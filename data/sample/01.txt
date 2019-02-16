@@ -1,0 +1,7 @@
+Title: Sample Document 01
+Author: Matthew Morgan
+Date: 5 February 2019 [EBOOK #01]
+Languages: English
+Text:
+
+Second sample document that contains numerous new words. Today in NLP we learned about stemming - for example, steals, stealing, stole, stolen, steal, etc.

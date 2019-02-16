@@ -1,0 +1,7 @@
+Title: Sample Document 02
+Author: Matthew Morgan
+Date: 4 February 2019 [EBOOK #02]
+Languages: English
+Text:
+
+This is the third document for the sample data, containing various words that will be stemmed.
