@@ -1,0 +1,11 @@
+# Ignores the corpora files
+data/cor
+data/ign
+data/lic
+data/notes.txt
+
+# Ignores batch files for accessing database via terminal
+bat
+
+# Ignores python or other misc folders
+__pycache__
