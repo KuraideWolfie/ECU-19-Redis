@@ -8,11 +8,12 @@
 **Date**: Started January 2019 _(updated 15 February 2019)_
 
 ### **Description**
-This project is being developed as a research project for the NSF grant provided to East Carolina University. This project is overseen by Dr. Venkat Gudivada, and being worked upon by Matthew Morgan under his guidance.
+This project is being developed as a research project for the NSF grant provided to East Carolina University. This project is overseen by Dr. Venkat Gudivada, and being worked upon by Matthew Morgan under his guidance. The project involves database management systems such as Regis, PostgreSQL, and utilities such as ElasticSearch.
 
 # **Requirements**
 **Language(s)**: Python v3.7.2
-<br />
+
+## **Redis** and Boolean Retrieval
 **Software**:
 + Redis version 5.0.3, available at https://redis.io/download
 
