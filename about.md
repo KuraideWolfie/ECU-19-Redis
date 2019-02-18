@@ -1,4 +1,4 @@
-# Redis and Gutenberg
+# ECU NSF Research Project
 **Title**: ECU-19-Redis
 <br />
 **Author**: Matthew Morgan

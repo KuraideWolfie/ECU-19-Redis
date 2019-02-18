@@ -16,7 +16,6 @@
   + Text: ...
 """
 
-# import redis
 from rediscluster import StrictRedisCluster
 import os
 import sys
