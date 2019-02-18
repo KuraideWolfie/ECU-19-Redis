@@ -24,7 +24,6 @@ from stem import PorterStemmer
 from ir import Token, tokenize
 
 # rhost, rport, and rpass are the database login credentials and access location
-# rhost, rport, rpass = 'redis-14929.c62.us-east-1-4.ec2.cloud.redislabs.com', 14929, '0aH8B6U66s2XXthymCYnx6cQLDk8hnPy'
 rhost, rport, rpass = '150.216.79.30', 6379, '1997mnmRedisStudies2019'
 rnode = [ {"host": rhost, "port": rport} ]
 
@@ -39,9 +38,8 @@ def __main__():
   print("Connecting to ", rhost, ":", rport, sep="")
 
   try:
-    # r = redis.Redis(host=rhost, port=rport, password=rpass, decode_responses=True)
     r = StrictRedisCluster(startup_nodes=rnode, decode_responses=True, password=rpass)
-  except Exception: #except redis.ConnectionError:
+  except Exception:
     print("Error connecting to database...")
     sys.exit(1)
   
@@ -54,9 +52,6 @@ def __main__():
       if confirm("Clear the database? (y/n)"):
         r.flushall()
       break
-  # if r.dbsize() > 0:
-  #   if confirm("Clear the database? (y/n)"):
-  #     r.flushall()
 
   # ------------------------------------------------------------------------------------------------
   if confirm("Load corpus data? (y/n)"):
@@ -73,8 +68,7 @@ def __main__():
       if '-' in fid: fid = fid.split("-")[0]
 
       cnt += 1
-      if cnt > 20: continue
-      if int(fid) % 15 in [5, 10, 7]: continue
+      if cnt > 3: continue
 
       # Ignore duplicate/alternate document IDs
       if fid in fidList: continue
@@ -113,22 +107,19 @@ def __main__():
       print('%7s' % (fid),':',tDic[fid]['name'])
     print()
 
-    # for tok in tokens:
-    #   tokens[tok].print_docs()
-    #   tokens[tok].print_pos()
-
     # ----------------------------------------------------------------------------------------------
     if confirm("Load data into database? (y/n)"):
       # Add the data to the database
-      print("Copying document data to the database... (", len(tDic), "documents)")
+      print("Copying document data to the database... (", len(tDic), " documents)", sep='')
       for doc in tDic:
         r.hset('doc:'+doc, 'name', tDic[doc]['name'])
         r.hset('doc:'+doc, 'auth', tDic[doc]['auth'])
         r.hset('doc:'+doc, 'date', tDic[doc]['date'])
     
-      print("Copying word data to the database... (", len(tokens), "tokens)")
-      for tok in tokens: r.sadd('term:'+tok, *set(tokens[tok].docs))
-      # TODO: Send token positional index
+      print("Copying word data to the database... (", len(tokens), " tokens)", sep='')
+      for tok in tokens:
+        r.sadd('term:'+tok, *set(tokens[tok].docs))
+        for doc in tokens[tok].docs: r.lpush('post:'+tok+'-'+doc, tokens[tok].pos[doc]) # TODO Connection error
 
   # ------------------------------------------------------------------------------------------------
   # Allow the user to type phrase and term queries
@@ -157,8 +148,6 @@ def __main__():
       print("There were", len(res), "hits")
       for doc in res:
         print('%7s' % (doc), ':', r.hget('doc:'+doc, 'name'))
-        # doc = doc.decode("utf-8")
-        # print('%7s' % (doc), ':', r.hget('doc:'+doc, 'name').decode('utf-8'))
     
     print()
 
