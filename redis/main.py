@@ -7,20 +7,13 @@
   This program reads in a significant amount of data from the Gutenberg corpora, processing the
   title, author, dates, and content of each document to generate a postings index for each unique
   term in the corpora.
-  
-  The format of a corpora document is as follows:
-  + Title: <title of the document>
-  + Author: <authors>
-  + Date: <date> [EBOOK #<id>]
-  + Languages: <languages>
-  + Text: ...
 """
 
 from rediscluster import StrictRedisCluster
-import os
-import sys
 from stem import PorterStemmer
 from ir import Token, tokenize
+from util import confirm, fileList
+import sys
 
 # rhost, rport, and rpass are the database login credentials and access location
 rhost, rport, rpass = '150.216.79.30', 6379, '1997mnmRedisStudies2019'
@@ -149,35 +142,5 @@ def __main__():
         print('%7s' % (doc), ':', r.hget('doc:'+doc, 'name'))
     
     print()
-
-def fileList(start='./data/cor/0-1/'):
-  """ fileList(start) generates a list of files in the provided starting directory
-
-      Keyword arguments:
-      start -- the starting directory (default './data/cor/0-1')
-
-      Return: A list of files in the starting directory and its subdirectories
-  """
-
-  files = []
-
-  for (folder, _, fName) in os.walk(start):
-    for name in fName: files.append(os.path.join(folder, name).replace('\\', '/'))
-  
-  return files
-
-def confirm(prompt='y/n'):
-  """ confirm(prompt) will prompt the user to enter yes or no until they enter one or the other
-      
-      Keyword arguments:
-      prompt -- The prompt text to be shown to the user
-
-      Return: True if the user enters y or yes, or False if they enter n or no
-  """
-
-  while True:
-    inp = input(prompt+' > ').lower()
-    if inp == 'y' or inp == 'yes': return True
-    if inp == 'n' or inp == 'no': return False
 
 __main__()

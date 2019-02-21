@@ -16,6 +16,7 @@ This project is being developed as a research project for the NSF grant provided
 ## **Redis** and Boolean Retrieval
 **Software**:
 + Redis version 5.0.3, available at https://redis.io/download
+    + _A 6-node Redis cluster - 3-worker, 3-master - was created using 6 machines with Redis configured for cluster usage on Linux OS_
 
 ### **Python Extensions**
 + `sudo pip install redis-py-cluster`

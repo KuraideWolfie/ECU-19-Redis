@@ -2,11 +2,8 @@
 data/cor
 data/ign
 data/lic
-data/notes.txt
 
-# Batch files for accessing database via terminal
 # ECU Redis node information (SHOULD NOT BE PUBLIC)
-bat
 doc/redis-info.txt
 
 # Python cache
