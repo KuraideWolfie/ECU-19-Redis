@@ -1,6 +1,8 @@
 # Cluster Setup
 The following commands will allow a basic cluster setup, and were used to setup the nodes/cluster for the project. The password used on the nodes is not included, nor is IP addresses about the nodes themselves.
 
+Information about clusters is available at https://redis.io/topics/cluster-tutorial.
+
 ## Node Setup
 The following instructions are useful for setting up a single node that will be used in a Redis cluster, and should be followed using a terminal. Information about the node will be stored in a folder called `cluster`.
 

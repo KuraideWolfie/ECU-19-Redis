@@ -15,22 +15,34 @@ from ir import Token, tokenize
 from util import confirm, fileList
 import sys
 
-# rhost, rport, and rpass are the database login credentials and access location
-rhost, rport, rpass = '150.216.79.30', 6379, '1997mnmRedisStudies2019'
-rnode = [ {"host": rhost, "port": rport} ]
+# rhost, rport, and rpass are login credentials for the cluster, where rhost is the first three
+# octets of the server's IP. (A list comprehension will build the list of nodes)
+rhost, rport, rpass = '150.216.79.', 6379, '1997mnmRedisStudies2019'
 
-# LANG_ALLOWED is the list of allowed languages (english, latin)
-LANG_ALLOWED = ['english']
+"""
+    rmaster is a list of keys that, when enclosed in {}, will hash to a slot on the corresponding
+    master as the index the key is contained in. For example, "3" will evaluate to 1584, and thus
+    be sent to the first master node.
+
+    The documents that will be sent to a corresponding master will be based on modulous as to
+    provide a semi-even distribution; that is, document 0 goes to node 0, 1->1, and 2->2, but then
+    document 3 goes back to node 0, 4->1, 5->2, etc. (This is NOT the same as using the fid's of
+    the corpora; the indices of the files as they appear in the list are what will be used)
+
+    The current list evaluates to slots [1584, 5649, 13907] respectively.
+"""
+rmaster = ["3", "2", "0"]
 
 def __main__():
-  global rhost, rport, rpass
+  global rhost, rport, rpass, rmaster
 
   # ------------------------------------------------------------------------------------------------
   # Connect to the Redis database, or terminate if the connection fails
-  print("Connecting to ", rhost, ":", rport, sep="")
+  print("Connecting to server...", sep="")
 
   try:
-    r = StrictRedisCluster(startup_nodes=rnode, decode_responses=True, password=rpass)
+    r = StrictRedisCluster(startup_nodes=[{"host": rhost+str(n), "port": rport} for n in range(30, 36)],
+      decode_responses=True, password=rpass)
   except Exception:
     print("Error connecting to database...")
     sys.exit(1)
@@ -47,71 +59,80 @@ def __main__():
 
   # ------------------------------------------------------------------------------------------------
   if confirm("Load corpus data? (y/n)"):
-    tDic, tokens, fidList = {}, {}, []
-    stem = PorterStemmer()
+    # master contains a list of files for each master node and the number of master nodes
+    # files is a list of ALL files in the corpus directory (specifiable by use_dir)
+    master = { "files": [], "count": len(rmaster) }
+    files, use_dir = [], ''
 
-    cnt = 0
+    # The user inputs the corpus directory they want, then we make empty file lists for each of
+    # the master nodes. We then fill those lists using a round-robin methodology involving modulous
+    use_dir = input("Input corpus directory (blank for none) > ").strip()
+    files = fileList('./data/cor/0-1/' if use_dir == "" else use_dir)
 
-    for f in fileList('./data/cor/0-1/english/'):
-      # The fid is the numerical portion of the file's name, before a hyphen. For example:
-      # ./data/100.txt --> 100, ./data/245-1.txt --> 245
-      fid = f.split('/')[-1]
-      fid = fid[:len(fid)-4]
-      if '-' in fid: fid = fid.split("-")[0]
+    for i in range(0, master['count']): master['files'].append([])
+    for i in range(0, len(files)):
+      master['files'][i % master['count']].append(files[i])
+      # print('Master', i % master['count'], 'has file', files[i]) # Debug print
+    
+    for mst in master['files']:
+      print(len(mst), 'files') # Debug print
 
-      cnt += 1
-      if cnt > 3: continue
+      for f in mst:
+        print(f)
+        # TODO Generate meta-data, BR, and positional and push to Redis here
+      # TODO Push raw documents here
 
-      # Ignore duplicate/alternate document IDs
-      if fid in fidList: continue
-      else: fidList.append(fid)
+    # tDic stores the metadata for the documents
+    # tokens is a dictionary of the tokens discovered in the documents
+    # stem is the Porter Stemmer class, instantiated
+    # tDic, tokens, stem = {}, {}, PorterStemmer()
 
-      with open(f, 'r', encoding='utf-8') as fRead:
-        lines, pos = fRead.readlines(), 0
+    # for i in range(0, len(files)):
+    #   f = files[i]
 
-        meta = {
-          "name": lines[0][lines[0].index(':')+1:].strip(),
-          "auth": lines[1][lines[1].index(':')+1:].strip(),
-          "date": lines[2][lines[2].index(':')+1:].strip(),
-          "lang": lines[3][lines[3].index(':')+1:].strip().lower()
-        }
+      # with open(f, 'r', encoding='utf-8') as fRead:
+      #   lines, pos = fRead.readlines(), 0
 
-        if '[' in meta['date']: meta['date'] = meta['date'][:meta['date'].rindex('[')]
+      #   meta = {
+      #     "name": lines[0][lines[0].index(':')+1:].strip(),
+      #     "auth": lines[1][lines[1].index(':')+1:].strip(),
+      #     "date": lines[2][lines[2].index(':')+1:].strip(),
+      #     "lang": lines[3][lines[3].index(':')+1:].strip().lower()
+      #   }
 
-        # Skip the file if it isn't in the list of allowed languages
-        if not meta['lang'] in LANG_ALLOWED: continue
-        tDic[fid] = meta
+      #   if '[' in meta['date']: meta['date'] = meta['date'][:meta['date'].rindex('[')]
+      #   tDic[f] = meta
 
-        # Tokenize lines and remove those that are empty after tokenization
-        lines = [tokenize(line) for line in lines[5:]]
-        lines = [line for line in lines if line]
+      #   # Tokenize lines and remove those that are empty after tokenization
+      #   lines = [tokenize(line) for line in lines[5:]]
+      #   lines = [line for line in lines if line]
 
-        for line in lines:
-          for word in line:
-            pos += 1
-            word = stem.stem(word, 0, len(word)-1)
-            if not word in tokens: tokens[word] = Token(tok=word)
+      #   for line in lines:
+      #     for word in line:
+      #       pos += 1
+      #       word = stem.stem(word, 0, len(word)-1)
+      #       if not word in tokens: tokens[word] = Token(tok=word)
 
-            tok = tokens[word]
-            tok.add_doc(fid)      # Boolean retrieval
-            tok.add_pos(fid, pos) # Positional index
+      #       tok = tokens[word]
+      #       tok.add_doc(f)      # Boolean retrieval
+      #       tok.add_pos(f, pos) # Positional index
       
-      print('%7s' % (fid),':',tDic[fid]['name'])
+      # print(master, ':', tDic[f]['name'])
     print()
 
     # ----------------------------------------------------------------------------------------------
-    if confirm("Load data into database? (y/n)"):
+    # if confirm("Load data into database? (y/n)"):
       # Add the data to the database
-      print("Copying document data to the database... (", len(tDic), " documents)", sep='')
-      for doc in tDic:
-        r.hset('doc:'+doc, 'name', tDic[doc]['name'])
-        r.hset('doc:'+doc, 'auth', tDic[doc]['auth'])
-        r.hset('doc:'+doc, 'date', tDic[doc]['date'])
+      # print("Copying document data to the database... (", len(tDic), " documents)", sep='')
+      # for doc in tDic:
+      #   r.hset('doc:'+doc, 'name', tDic[doc]['name'])
+      #   r.hset('doc:'+doc, 'auth', tDic[doc]['auth'])
+      #   r.hset('doc:'+doc, 'date', tDic[doc]['date'])
     
-      print("Copying word data to the database... (", len(tokens), " tokens)", sep='')
-      for tok in tokens:
-        r.sadd('term:'+tok, *set(tokens[tok].docs))
-        for doc in tokens[tok].docs: r.lpush('post:'+tok+'-'+doc, tokens[tok].pos[doc]) # TODO Connection error
+      # print("Copying word data to the database... (", len(tokens), " tokens)", sep='')
+      # for tok in tokens:
+      #   r.sadd('term:'+tok, *set(tokens[tok].docs))
+      #   for doc in tokens[tok].docs: r.lpush('post:'+tok+'-'+doc, tokens[tok].pos[doc]) # TODO Connection error
 
   # ------------------------------------------------------------------------------------------------
   # Allow the user to type phrase and term queries
