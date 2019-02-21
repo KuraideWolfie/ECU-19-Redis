@@ -1,6 +1,6 @@
 Title: Sample Document 01
 Author: Matthew Morgan
-Date: 5 February 2019 [EBOOK #01]
+Release Date: 5 February 2019 [EBOOK #01]
 Languages: English
 Text:
 
