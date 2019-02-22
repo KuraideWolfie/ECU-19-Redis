@@ -15,6 +15,7 @@ from ir import Token, tokenize, STOP_WORDS
 from util import confirm, fileList
 from query import Query
 import sys
+from datetime import datetime
 
 # rhost, rport, and rpass are login credentials for the cluster, where rhost is the first three
 # octets of the server's IP. (A list comprehension will build the list of nodes)
@@ -152,7 +153,8 @@ def __main__():
            info[node]['used_memory_rss_human'], info[node]['used_memory_lua_human']))
         print('    Workers:', rep[node]['connected_slaves'])
     else:
-      res = r.sunion(['{%s}term:%s' % (mas,tok) for tok in tokenize(q) for mas in rmaster])
+      res = fetch(q, r)
+      Query(q).print()
 
       print("There were", len(res), "hits")
       for doc in res:
@@ -164,5 +166,41 @@ def __main__():
             print('%7s' % (doc), ':', val)
     
     print()
+
+def now(): return str(datetime.now())
+
+def fetch(query_text, r):
+  def subfetch(que):
+    # res is a collection of keys in the Redis database that the subquery uses for intermediary
+    # result storage
+    global rmaster
+    res, stem = [], PorterStemmer()
+
+    for bit in que.data:
+      if 'Query' in str(type(bit)): res.append(subfetch(bit))
+      else:
+        res.append(now())
+        r.sunionstore(res[-1], ['{%s}term:%s' % (mst,stem.stem(bit, 0, len(bit)-1)) for mst in rmaster])
+        r.expire(res[-1], 60)
+    res.append(now())
+
+    if que.type == 'and':   r.sinterstore(res[-1], res[0:len(res)-1])
+    elif que.type == 'or':  r.sunionstore(res[-1], res[0:len(res)-1])
+    elif que.type == 'not':
+      # Get the master document set for the entire server
+      res.append(now)
+      r.sunionstore(res[-2], ['{%s}docset' % mst for mst in rmaster])
+      r.sdiffstore(res[-1], res[0:len(res)-1][::-1])
+    
+    # Erase all keys generated to this point to clear memory
+    for i in range(0, len(res)-1): r.delete(res[i])
+    return res[-1]
+
+  # Get the results, and erase the final key
+  key = subfetch(Query(query_text))
+  res = r.smembers(key)
+  r.delete(key)
+
+  return sorted(res)
 
 __main__()

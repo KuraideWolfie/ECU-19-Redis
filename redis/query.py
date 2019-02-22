@@ -23,6 +23,7 @@ class Query:
   def __init__(self, que):
     """ init(que) initializes a new query instance """
     self.data = []
+    self.type = 'or'
     bits = parse(que)
 
     if len(bits) > 1:
@@ -37,6 +38,8 @@ class Query:
       if len(bits) == 1 and '!' in bits[0]:
         self.type = 'not'
         bits = parse(bits[0], spl='!')
+
+        if len(bits) > 1: raise Exception("Query syntax is invalid")
     
     # Query was empty
     if len(bits) == 0: raise Exception("Query cannot be empty")
