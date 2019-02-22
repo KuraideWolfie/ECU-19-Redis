@@ -13,6 +13,7 @@ from rediscluster import StrictRedisCluster
 from stem import PorterStemmer
 from ir import Token, tokenize, STOP_WORDS
 from util import confirm, fileList
+from query import Query
 import sys
 
 # rhost, rport, and rpass are login credentials for the cluster, where rhost is the first three
@@ -74,7 +75,6 @@ def __main__():
       master['files'][i % master['count']].append(files[i])
       # print('Master', i % master['count'], 'has file', files[i]) # Debug print
     
-    # for mst in master['files']:
     for i in range(0, master['count']):
       mst = master['files'][i]
 
@@ -115,11 +115,15 @@ def __main__():
       # Push corpus data to the database
       print("Sending data to the server for", len(meta), "documents and", len(tokens), "tokens")
 
+      # PUSH document metadata
       for doc in meta:
         for tag in meta[doc]:
-          # print(doc, tag, meta[doc][tag])
           r.hset('{'+rmaster[i]+'}doc:'+doc, tag, meta[doc][tag])
+      
+      # PUSH document set
+      r.sadd('{'+rmaster[i]+'}docset', *set(meta.keys()))
         
+      # PUSH token boolean retrieval index
       for tok in tokens:
         r.sadd('{'+rmaster[i]+'}term:'+tok, *set(tokens[tok].docs))
         # for doc in tokens[tok].docs: r.lpush('pos:'+tok+'-'+doc, tokens[tok].pos[doc])
