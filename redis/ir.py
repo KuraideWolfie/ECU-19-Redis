@@ -8,6 +8,31 @@
   IR-related functions.
 """
 
+# List of stopwords from https://kb.yoast.com/kb/list-stop-words/
+STOP_WORDS = {
+  'a': ['a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'as', 'at'],
+  'b': ['be', 'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by'],
+  'c': ['could'],
+  'd': ['did', 'do', 'does', 'doing', 'down', 'during'],
+  'e': ['each'],
+  'f': ['few', 'for', 'from', 'further'],
+  'h': ['had', 'has', 'have', 'having', 'he', "he'd", "he'll", "he's", 'her', 'here', "here's", 'hers',
+        'herself', 'him', 'himself', 'his', 'how', "how's"],
+  'i': ['i', "i'd", "i'll", "i've", "i'm", 'if', 'in', 'into', 'is', 'it', "it's", 'its', 'itself'],
+  'l': ["let's"],
+  'm': ['me', 'more', 'most', 'my', 'myself'],
+  'n': ['nor'],
+  'o': ['of', 'on', 'once', 'only', 'or', 'other', 'ought', 'our', 'ours', 'ourselves', 'out', 'over', 'own'],
+  's': ['she', "she'd", "she'll", "she's", 'should', 'should', 'so', 'some', 'such'],
+  't': ['than', 'that', "that's", 'the', 'their', 'theirs', 'them', 'themselves', 'then', 'there', "there's",
+        'these', 'they', "they'd", "they'll", "they're", "they've", 'this', 'those', 'through', 'to', 'too'],
+  'u': ['under', 'until', 'up'],
+  'v': ['very'],
+  'w': ['was', 'we', "we'd", "we'll", "we're", "we've", 'were', 'what', "what's", 'when', "when's", 'where',
+        "where's", 'which', 'while', 'who', "who's", 'whom', 'why', "why's", 'with', 'would'],
+  'y': ['you', "you'll", "you'd", "you're", "you'll", "you've", 'your', 'yours', 'yourself', 'yourselves']
+}
+
 class Token:
   """ A Token is a representation of a single word (stemmed or otherwise) in a document corpora,
       storing a positional and boolean retrieval indices.

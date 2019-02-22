@@ -11,7 +11,7 @@
 
 from rediscluster import StrictRedisCluster
 from stem import PorterStemmer
-from ir import Token, tokenize
+from ir import Token, tokenize, STOP_WORDS
 from util import confirm, fileList
 import sys
 
@@ -74,65 +74,58 @@ def __main__():
       master['files'][i % master['count']].append(files[i])
       # print('Master', i % master['count'], 'has file', files[i]) # Debug print
     
-    for mst in master['files']:
+    # for mst in master['files']:
+    for i in range(0, master['count']):
+      mst = master['files'][i]
+
       print(len(mst), 'files') # Debug print
+      meta, tokens, stem = {}, {}, PorterStemmer()
 
       for f in mst:
-        print(f)
-        # TODO Generate meta-data, BR, and positional and push to Redis here
+        with open(f, 'r', encoding='utf-8') as fr:
+          lines, pos, fid = fr.readlines(), 0, f[f.rfind('/')+1:f.rfind('.')].split('-')[0]
+          dat = [lines[i][lines[i].index(':')+1:].strip() for i in range(0,4)]
+
+          # Metadata for the document - name, auth, date
+          meta[fid] = { 'name': dat[0], 'auth': dat[1], 'date': dat[2] }
+          if '[' in meta[fid]['date']:
+            date = meta[fid]['date']
+            meta[fid]['date'] = date[:date.rindex('[')]
+
+          print('  %5s : %s' % (fid, meta[fid]['name']))
+
+          # Tokenized lines
+          lines = [tokenize(line) for line in lines[5:]]
+          lines = [line for line in lines if line]
+
+          for line in lines:
+            for word in line:
+              pos += 1
+              word = stem.stem(word, 0, len(word)-1)
+
+              if not word in tokens:
+                if word[0] in STOP_WORDS:
+                  if word in STOP_WORDS[word[0]]: continue
+                tokens[word] = Token(tok=word)
+
+              tok = tokens[word]
+              tok.add_doc(fid)
+              tok.add_pos(fid, pos)
+        
+      # Push corpus data to the database
+      print("Sending data to the server for", len(meta), "documents and", len(tokens), "tokens")
+
+      for doc in meta:
+        for tag in meta[doc]:
+          # print(doc, tag, meta[doc][tag])
+          r.hset('{'+rmaster[i]+'}doc:'+doc, tag, meta[doc][tag])
+        
+      for tok in tokens:
+        r.sadd('{'+rmaster[i]+'}term:'+tok, *set(tokens[tok].docs))
+        # for doc in tokens[tok].docs: r.lpush('pos:'+tok+'-'+doc, tokens[tok].pos[doc])
       # TODO Push raw documents here
 
-    # tDic stores the metadata for the documents
-    # tokens is a dictionary of the tokens discovered in the documents
-    # stem is the Porter Stemmer class, instantiated
-    # tDic, tokens, stem = {}, {}, PorterStemmer()
-
-    # for i in range(0, len(files)):
-    #   f = files[i]
-
-      # with open(f, 'r', encoding='utf-8') as fRead:
-      #   lines, pos = fRead.readlines(), 0
-
-      #   meta = {
-      #     "name": lines[0][lines[0].index(':')+1:].strip(),
-      #     "auth": lines[1][lines[1].index(':')+1:].strip(),
-      #     "date": lines[2][lines[2].index(':')+1:].strip(),
-      #     "lang": lines[3][lines[3].index(':')+1:].strip().lower()
-      #   }
-
-      #   if '[' in meta['date']: meta['date'] = meta['date'][:meta['date'].rindex('[')]
-      #   tDic[f] = meta
-
-      #   # Tokenize lines and remove those that are empty after tokenization
-      #   lines = [tokenize(line) for line in lines[5:]]
-      #   lines = [line for line in lines if line]
-
-      #   for line in lines:
-      #     for word in line:
-      #       pos += 1
-      #       word = stem.stem(word, 0, len(word)-1)
-      #       if not word in tokens: tokens[word] = Token(tok=word)
-
-      #       tok = tokens[word]
-      #       tok.add_doc(f)      # Boolean retrieval
-      #       tok.add_pos(f, pos) # Positional index
-      
-      # print(master, ':', tDic[f]['name'])
     print()
-
-    # ----------------------------------------------------------------------------------------------
-    # if confirm("Load data into database? (y/n)"):
-      # Add the data to the database
-      # print("Copying document data to the database... (", len(tDic), " documents)", sep='')
-      # for doc in tDic:
-      #   r.hset('doc:'+doc, 'name', tDic[doc]['name'])
-      #   r.hset('doc:'+doc, 'auth', tDic[doc]['auth'])
-      #   r.hset('doc:'+doc, 'date', tDic[doc]['date'])
-    
-      # print("Copying word data to the database... (", len(tokens), " tokens)", sep='')
-      # for tok in tokens:
-      #   r.sadd('term:'+tok, *set(tokens[tok].docs))
-      #   for doc in tokens[tok].docs: r.lpush('post:'+tok+'-'+doc, tokens[tok].pos[doc]) # TODO Connection error
 
   # ------------------------------------------------------------------------------------------------
   # Allow the user to type phrase and term queries
@@ -141,7 +134,7 @@ def __main__():
   print("\nType '!stop' to exit querying")
 
   while not done:
-    q, search = input("Query > "), []
+    q = input("Query > ")
 
     if q == '!stop': done = True
     elif q == '!sys':
@@ -155,12 +148,16 @@ def __main__():
            info[node]['used_memory_rss_human'], info[node]['used_memory_lua_human']))
         print('    Workers:', rep[node]['connected_slaves'])
     else:
-      for term in tokenize(q): search.append('term:'+PorterStemmer().stem(term, 0, len(term)-1))
-      res = r.sinter(search)
+      res = r.sunion(['{%s}term:%s' % (mas,tok) for tok in tokenize(q) for mas in rmaster])
 
       print("There were", len(res), "hits")
       for doc in res:
-        print('%7s' % (doc), ':', r.hget('doc:'+doc, 'name'))
+        # Query all the master nodes for the document title
+        for mst in rmaster:
+          val = r.hget('{'+mst+'}doc:'+doc, 'name')
+          if val == None: continue
+          else:
+            print('%7s' % (doc), ':', val)
     
     print()
 

@@ -32,14 +32,18 @@ The final copy of the Gutenberg corpora, after all modifications, is contained i
 + `lic`, or the compressed licenses extracted from the corpa documents
 + `ign`, or ignored corpora documents, such as mathematical constants
 + `ign/lang`, or ignored corpora documents due to language
-+ `ign/alt`, or ignored corpora documents due to being alternate copies
++ `ign/alt`, or ignored corpora documents due to being alternate copies<br/>
+  _Alternate copies means encoding. Files with -8, -5, and -0 are utf-8, big-5, and ascii encoding respectively according to the gutenberg website_:
+  https://www.gutenberg.org/files/
 
 Corpora documents maintain certain metadata attributes from the original dataset, including the following lines at the top of each plaintext file:
 + `Title`: The title of the corpus document
 + `Author`: The authors of the document
-+ `Release Date`: A date with ebook identifier, (`<date> [EBOOK #<id>]`)
++ `Release Date`: A date with ebook identifier, (`<date> [EBOOK #<id>]`), or just a date
 + `Languages`: Languages in the document
 + `Text`: The text itself
+
+In regards to the following 'processing todo' points, there is a lot of inconsistency in the formatting of the Gutenberg corpa. As aforementioned, some files include an ebook identifier, but some may not; others, in turn, may format the date differently. Some have produced by lines, and some do not, and some do not maintain the original titles on the same line as the `Text` indicator above...
 
 Processing **Todo**
 + 1118 contains a project notice before the start of the text
