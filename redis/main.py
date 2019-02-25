@@ -136,7 +136,7 @@ def __main__():
   # Allow the user to type phrase and term queries
   done = False
 
-  print("\nType '!stop' to exit querying")
+  print("\nType '~stop' to exit querying")
 
   while not done:
     q = input("Query > ")
@@ -200,7 +200,7 @@ def fetch(query_text, r):
       r.sunionstore(res[-1], res[0:len(res)-1])
     elif que.type == 'not':
       # Get the master document set for the entire server
-      res.append(now)
+      res.append(now()+'-2')
       r.sunionstore(res[-2], ['{%s}docset' % mst for mst in rmaster])
       r.sdiffstore(res[-1], res[0:len(res)-1][::-1])
     
