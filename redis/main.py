@@ -12,7 +12,7 @@
 from rediscluster import StrictRedisCluster
 from stem import PorterStemmer
 from ir import Token, tokenize, STOP_WORDS
-from util import confirm, fileList
+from util import confirm, fileList, flushprint
 from query import Query
 import sys
 from datetime import datetime
@@ -93,9 +93,10 @@ def __main__():
             date = meta[fid]['date']
             meta[fid]['date'] = date[:date.rindex('[')]
 
-          print('  %5s : %s' % (fid, meta[fid]['name']))
+          flushprint('  %5s : %s' % (fid, meta[fid]['name']), end=' ')
 
           # Tokenized lines
+          flushprint('(Tokenizing)', end=' ')
           lines = [tokenize(line) for line in lines[5:]]
           lines = [line for line in lines if line]
 
@@ -112,6 +113,11 @@ def __main__():
               tok = tokens[word]
               tok.add_doc(fid)
               tok.add_pos(fid, pos)
+          
+          # PUSH raw document data
+          print('(Pushing)', end='\n')
+          fr.seek(0)
+          r.hset('{'+rmaster[i]+'}doc:'+fid, 'content', '\n'.join([ln for ln in fr.readlines() if ln]))
         
       # Push corpus data to the database
       print("Sending data to the server for", len(meta), "documents and", len(tokens), "tokens")
@@ -128,7 +134,6 @@ def __main__():
       for tok in tokens:
         r.sadd('{'+rmaster[i]+'}term:'+tok, *set(tokens[tok].docs))
         # for doc in tokens[tok].docs: r.lpush('pos:'+tok+'-'+doc, tokens[tok].pos[doc])
-      # TODO Push raw documents here
 
     print()
 
@@ -140,9 +145,11 @@ def __main__():
 
   while not done:
     q = input("Query > ")
+    cmd = q.split(' ')
 
-    if q == '~stop': done = True
-    elif q == '~sys':
+    if cmd[0] == '~stop': done = True # Stop command - terminates querying
+    elif cmd[0] == '~sys':
+      # Sys command - shows database nodes, used memory, and workers for each master node
       keys, info, rep = r.dbsize(), r.info(section='memory'), r.info(section='replication')
 
       print('Database Master Nodes')
@@ -152,11 +159,25 @@ def __main__():
           (info[node]['used_memory_human'], info[node]['total_system_memory_human'],
            info[node]['used_memory_rss_human'], info[node]['used_memory_lua_human']))
         print('    Workers:', rep[node]['connected_slaves'])
+    elif cmd[0] == '~meta':
+      # Metadata command - shows document meta data
+      try:
+        for doc in cmd[1:]:
+          mst = -1
+          for i in range(0, len(rmaster)):
+            if r.exists('{'+rmaster[i]+'}doc:'+doc) > 0: mst = i
+
+          if not mst == -1:
+            print('Document', doc)
+            for dat in [r.hget('{'+rmaster[mst]+'}doc:'+doc, val) for val in ['name', 'date', 'auth']]:
+              print('  ', dat, sep='')
+          else: print("Document '", doc, "' not found", sep='')
+      except Exception: print("Input is invalid")
     else:
       try:
         res = fetch(q, r)
-
         print("There were", len(res), "hits")
+
         for doc in res:
           # Query all the master nodes for the document title
           for mst in rmaster:
@@ -164,8 +185,7 @@ def __main__():
             if val == None: continue
             else:
               print('%7s' % (doc), ':', val)
-      except Exception:
-        print("The provided query is invalid. Please try again")
+      except Exception: print("The provided query is invalid. Please try again")
     
     print()
 
@@ -180,7 +200,6 @@ def fetch(query_text, r):
 
     for bit in que.data:
       if 'Query' in str(type(bit)):
-        bit.print() # DEBUG
         res.append(subfetch(bit))
       else:
         # Do not store union if the term does not exist on any of the nodes
@@ -206,12 +225,7 @@ def fetch(query_text, r):
     
     # Erase all keys generated to this point to clear memory
     for i in range(0, len(res)-1): r.delete(res[i])
-    print(sorted(r.smembers(res[-1]))) # DEBUG
     return res[-1]
-
-  # DEBUG PRINT
-  Query(query_text).print()
-  print()
 
   # Get the results, and erase the final key
   key = subfetch(Query(query_text))

@@ -9,6 +9,7 @@
 """
 
 import os
+import sys
 
 def fileList(start='./data/cor/0-1/'):
   """ fileList(start) generates a list of files in the provided starting directory
@@ -39,3 +40,14 @@ def confirm(prompt='y/n'):
     inp = input(prompt+' > ').lower()
     if inp == 'y' or inp == 'yes': return True
     if inp == 'n' or inp == 'no': return False
+
+def flushprint(msg, end='\n'):
+  """ flushprint(msg, end='\n') writes the given message then flushes standard output
+
+      Keyword arguments:
+      msg -- The message to be printed
+      end -- The ending character to be placed after the message
+  """
+
+  print(msg, end=end)
+  sys.stdout.flush()
