@@ -141,8 +141,8 @@ def __main__():
   while not done:
     q = input("Query > ")
 
-    if q == '!stop': done = True
-    elif q == '!sys':
+    if q == '~stop': done = True
+    elif q == '~sys':
       keys, info, rep = r.dbsize(), r.info(section='memory'), r.info(section='replication')
 
       print('Database Master Nodes')
@@ -153,17 +153,19 @@ def __main__():
            info[node]['used_memory_rss_human'], info[node]['used_memory_lua_human']))
         print('    Workers:', rep[node]['connected_slaves'])
     else:
-      res = fetch(q, r)
-      Query(q).print()
+      try:
+        res = fetch(q, r)
 
-      print("There were", len(res), "hits")
-      for doc in res:
-        # Query all the master nodes for the document title
-        for mst in rmaster:
-          val = r.hget('{'+mst+'}doc:'+doc, 'name')
-          if val == None: continue
-          else:
-            print('%7s' % (doc), ':', val)
+        print("There were", len(res), "hits")
+        for doc in res:
+          # Query all the master nodes for the document title
+          for mst in rmaster:
+            val = r.hget('{'+mst+'}doc:'+doc, 'name')
+            if val == None: continue
+            else:
+              print('%7s' % (doc), ':', val)
+      except Exception:
+        print("The provided query is invalid. Please try again")
     
     print()
 
@@ -177,15 +179,25 @@ def fetch(query_text, r):
     res, stem = [], PorterStemmer()
 
     for bit in que.data:
-      if 'Query' in str(type(bit)): res.append(subfetch(bit))
+      if 'Query' in str(type(bit)):
+        bit.print() # DEBUG
+        res.append(subfetch(bit))
       else:
-        res.append(now())
-        r.sunionstore(res[-1], ['{%s}term:%s' % (mst,stem.stem(bit, 0, len(bit)-1)) for mst in rmaster])
-        r.expire(res[-1], 60)
+        # Do not store union if the term does not exist on any of the nodes
+        keys = [k for k in ['{%s}term:%s' % (mst, stem.stem(bit, 0, len(bit)-1)) for mst in rmaster] if r.exists(k) > 0]
+        if len(keys) > 0:
+          res.append(now())
+          r.sunionstore(res[-1], keys)
+          r.expire(res[-1], 60)
+    
+    # Return here if there are no results to process
+    if len(res) == 0: return []
     res.append(now())
 
-    if que.type == 'and':   r.sinterstore(res[-1], res[0:len(res)-1])
-    elif que.type == 'or':  r.sunionstore(res[-1], res[0:len(res)-1])
+    if que.type == 'and':
+      r.sinterstore(res[-1], res[0:len(res)-1])
+    elif que.type == 'or':
+      r.sunionstore(res[-1], res[0:len(res)-1])
     elif que.type == 'not':
       # Get the master document set for the entire server
       res.append(now)
@@ -194,7 +206,12 @@ def fetch(query_text, r):
     
     # Erase all keys generated to this point to clear memory
     for i in range(0, len(res)-1): r.delete(res[i])
+    print(sorted(r.smembers(res[-1]))) # DEBUG
     return res[-1]
+
+  # DEBUG PRINT
+  Query(query_text).print()
+  print()
 
   # Get the results, and erase the final key
   key = subfetch(Query(query_text))
