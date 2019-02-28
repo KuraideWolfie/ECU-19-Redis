@@ -9,6 +9,7 @@
   term in the corpora.
 """
 
+from redis.exceptions import ConnectionError
 from rediscluster import StrictRedisCluster
 from stem import PorterStemmer
 from ir import Token, tokenize, STOP_WORDS
@@ -143,63 +144,72 @@ def __main__():
 
   print("\nType '~stop' to exit querying")
 
+  # q and cmd are used for querying; reset indicates if a connection error occured and reset is required
+  q, cmd, reset = '', [], False
   while not done:
-    q = input("Query > ")
-    cmd = q.split(' ')
+    try:
+      if not reset:
+        q = input("Query > ")
+        cmd = q.split(' ')
+      else: reset = False
 
-    if cmd[0] == '~stop': done = True # Stop command - terminates querying
-    elif cmd[0] == '~sys':
-      # Sys command - shows database nodes, used memory, and workers for each master node
-      keys, info, rep = r.dbsize(), r.info(section='memory'), r.info(section='replication')
+      if cmd[0] == '~stop': done = True # Stop command - terminates querying
+      elif cmd[0] == '~sys':
+        # Sys command - shows database nodes, used memory, and workers for each master node
+        keys, info, rep = r.dbsize(), r.info(section='memory'), r.info(section='replication')
 
-      print('Database Master Nodes')
-      for node in [k for k in keys if rep[k]['role'] == 'master']:
-        print('  ', node, ' -> ', keys[node], ' keys', sep='')
-        print('    Memory: (Cur\\Ttl -> %s \\ %s), (RSS\\LUA -> %s \\ %s)' %
-          (info[node]['used_memory_human'], info[node]['total_system_memory_human'],
-           info[node]['used_memory_rss_human'], info[node]['used_memory_lua_human']))
-        print('    Workers:', rep[node]['connected_slaves'])
-    elif cmd[0] == '~docset':
-      # Docset command - shows document lists on each master node
-      print('Document set for master nodes:')
-      for i in range(0, len(rmaster)):
-        docs = list(r.smembers('{'+rmaster[i]+'}docset'))
-        print('  Master ', i, ':', sep='')
-        
-        # Print documents in sets of 25
-        for k in range(0, len(docs)):
-          if k % 25 == 0: print('    ', end='')
-          print(docs[k], ' ', sep='', end='')
-          if k % 25 == 24 or k == len(docs)-1: print()
-    elif cmd[0] == '~meta':
-      # Metadata command - shows document meta data
-      try:
-        for doc in cmd[1:]:
-          mst = -1
-          for i in range(0, len(rmaster)):
-            if r.exists('{'+rmaster[i]+'}doc:'+doc) > 0: mst = i
+        print('Database Master Nodes')
+        for node in [k for k in keys if rep[k]['role'] == 'master']:
+          print('  ', node, ' -> ', keys[node], ' keys', sep='')
+          print('    Memory: (Cur\\Ttl -> %s \\ %s), (RSS\\LUA -> %s \\ %s)' %
+            (info[node]['used_memory_human'], info[node]['total_system_memory_human'],
+            info[node]['used_memory_rss_human'], info[node]['used_memory_lua_human']))
+          print('    Workers:', rep[node]['connected_slaves'])
+      elif cmd[0] == '~docset':
+        # Docset command - shows document lists on each master node
+        print('Document set for master nodes:')
+        for i in range(0, len(rmaster)):
+          docs = sorted(list(r.smembers('{'+rmaster[i]+'}docset')))
+          print('  Master ', i, ':', sep='')
+          
+          # Print documents in sets of 25
+          for k in range(0, len(docs)):
+            if k % 25 == 0: print('    ', end='')
+            print(docs[k], ' ', sep='', end='')
+            if k % 25 == 24 or k == len(docs)-1: print()
+      elif cmd[0] == '~meta':
+        # Metadata command - shows document meta data
+        try:
+          for doc in cmd[1:]:
+            mst = -1
+            for i in range(0, len(rmaster)):
+              if r.exists('{'+rmaster[i]+'}doc:'+doc) > 0: mst = i
 
-          if not mst == -1:
-            print('Document', doc)
-            for dat in [r.hget('{'+rmaster[mst]+'}doc:'+doc, val) for val in ['name', 'date', 'auth']]:
-              print('  ', dat, sep='')
-          else: print("Document '", doc, "' not found", sep='')
-      except Exception: print("Input is invalid")
-    else:
-      try:
-        res = fetch(q, r)
-        print("There were", len(res), "hits")
+            if not mst == -1:
+              print('Document', doc)
+              for dat in [r.hget('{'+rmaster[mst]+'}doc:'+doc, val) for val in ['name', 'date', 'auth']]:
+                print('  ', dat, sep='')
+            else: print("Document '", doc, "' not found", sep='')
+        except Exception: print("Input is invalid")
+      else:
+        try:
+          res = fetch(q, r)
+          print("There were", len(res), "hits")
 
-        for doc in res:
-          # Query all the master nodes for the document title
-          for mst in rmaster:
-            val = r.hget('{'+mst+'}doc:'+doc, 'name')
-            if val == None: continue
-            else:
-              print('%7s' % (doc), ':', val)
-      except Exception: print("The provided query is invalid. Please try again")
+          for doc in res:
+            # Query all the master nodes for the document title
+            for mst in rmaster:
+              val = r.hget('{'+mst+'}doc:'+doc, 'name')
+              if val == None: continue
+              else:
+                print('%7s' % (doc), ':', val)
+        except Exception: print("The provided query is invalid. Please try again")
+      print()
+    except ConnectionError:
+      reset = True
+      r.refresh_table_asap = True
+      print("Woops... Something went wrong; hold on a moment...")
     
-    print()
 
 def now(): return str(datetime.now())
 
