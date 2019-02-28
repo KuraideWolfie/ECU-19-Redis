@@ -159,6 +159,17 @@ def __main__():
           (info[node]['used_memory_human'], info[node]['total_system_memory_human'],
            info[node]['used_memory_rss_human'], info[node]['used_memory_lua_human']))
         print('    Workers:', rep[node]['connected_slaves'])
+    elif cmd[0] == '~docset':
+      # Docset command - shows document lists on each master node
+      print('Document set for master nodes:')
+      for i in range(0, len(rmaster)):
+        docs = list(r.smembers('{'+rmaster[i]+'}docset'))
+
+        print('  Master ', i, ':', sep='')
+        for k in range(0, len(docs)):
+          if k % 25 == 0: print('    ', end='')
+          print(docs[k], ' ', sep='', end='')
+          if k % 25 == 24 or k == len(docs)-1: print()
     elif cmd[0] == '~meta':
       # Metadata command - shows document meta data
       try:
