@@ -164,8 +164,9 @@ def __main__():
       print('Document set for master nodes:')
       for i in range(0, len(rmaster)):
         docs = list(r.smembers('{'+rmaster[i]+'}docset'))
-
         print('  Master ', i, ':', sep='')
+        
+        # Print documents in sets of 25
         for k in range(0, len(docs)):
           if k % 25 == 0: print('    ', end='')
           print(docs[k], ' ', sep='', end='')

@@ -34,7 +34,7 @@ The following instructions are useful for setting up a single node that will be 
     masterauth [pass]
     port 6379
     cluster-enabled yes
-    cluster-config-file nodes.conf
+    cluster-config-file /nodes.conf
     cluster-node-timeout 5000
     appendonly yes
     ```
@@ -44,3 +44,15 @@ The following instructions are useful for setting up a single node that will be 
   <br />`redis-cli --cluster create [node]:[port] ... [node]:[port] --cluster-replicas 1 -a [pass]`
 
 _(The following commands are prefixed with `redis-cli`.)_ You can get information about a node via the terminal on the node in question: `-p [port] cluster nodes | grep myself`. You can check on a node by using `--cluster check [node]` and reshard using `--cluster reshard [node] -a [pass]`.
+
+## Shortcutting a Cluster Check on a Node
+The following contents were put into a file - `chk.sh` - such that the Redis cluster's status could be checked. It was put onto two of the nodes - one worker, and one master. It prints the total and used memory for the Redis node, and prints the cluster's status afterward, including information about the number of keys per master and slot coverage.
+
+```
+clear
+redis-cli -p 6379 -a <pass> info | egrep "used_memory_human|total_system_memory_human"
+printf "\n"
+redis-cli --cluster check <ip> 6379 -a <pass>
+```
+
+In most cases, `chmod u+x chk.sh` will be required to make the file with this contents able to operate through a command terminal.
