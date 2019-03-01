@@ -84,42 +84,45 @@ def __main__():
       meta, tokens, stem = {}, {}, PorterStemmer()
 
       for f in mst:
-        with open(f, 'r', encoding='utf-8') as fr:
-          lines, pos, fid = fr.readlines(), 0, f[f.rfind('/')+1:f.rfind('.')].split('-')[0]
-          dat = [lines[i][lines[i].index(':')+1:].strip() for i in range(0,4)]
+        try:
+          with open(f, 'r', encoding='utf-8') as fr:
+            lines, pos, fid = fr.readlines(), 0, f[f.rfind('/')+1:f.rfind('.')].split('-')[0]
+            dat = [lines[i][lines[i].index(':')+1:].strip() for i in range(0,4)]
 
-          # Metadata for the document - name, auth, date
-          meta[fid] = { 'name': dat[0], 'auth': dat[1], 'date': dat[2] }
-          if '[' in meta[fid]['date']:
-            date = meta[fid]['date']
-            meta[fid]['date'] = date[:date.rindex('[')]
+            # Metadata for the document - name, auth, date
+            meta[fid] = { 'name': dat[0], 'auth': dat[1], 'date': dat[2] }
+            if '[' in meta[fid]['date']:
+              date = meta[fid]['date']
+              meta[fid]['date'] = date[:date.rindex('[')]
 
-          flushprint('  %5s : %s' % (fid, meta[fid]['name']), end=' ')
+            flushprint('  %5s : %s' % (fid, meta[fid]['name']), end=' ')
 
-          # Tokenized lines
-          flushprint('(Tokenizing)', end=' ')
-          lines = [tokenize(line) for line in lines[5:]]
-          lines = [line for line in lines if line]
+            # Tokenized lines
+            flushprint('(Tokenizing)', end=' ')
+            lines = [tokenize(line) for line in lines[5:]]
+            lines = [line for line in lines if line]
 
-          for line in lines:
-            for word in line:
-              pos += 1
-              word = stem.stem(word, 0, len(word)-1)
+            for line in lines:
+              for word in line:
+                pos += 1
+                word = stem.stem(word, 0, len(word)-1)
 
-              if not word in tokens:
-                if word[0] in STOP_WORDS:
-                  if word in STOP_WORDS[word[0]]: continue
-                tokens[word] = Token(tok=word)
+                if not word in tokens:
+                  if word[0] in STOP_WORDS:
+                    if word in STOP_WORDS[word[0]]: continue
+                  tokens[word] = Token(tok=word)
 
-              tok = tokens[word]
-              tok.add_doc(fid)
-              tok.add_pos(fid, pos)
-          
-          # PUSH raw document data
-          print('(Pushing)', end='\n')
-          fr.seek(0)
-          r.hset('{'+rmaster[i]+'}doc:'+fid, 'content', '\n'.join([ln for ln in fr.readlines() if ln]))
-        
+                tok = tokens[word]
+                tok.add_doc(fid)
+                tok.add_pos(fid, pos)
+            
+            # PUSH raw document data
+            print('(Pushing)', end='\n')
+            fr.seek(0)
+            r.hset('{'+rmaster[i]+'}doc:'+fid, 'content', '\n'.join([ln for ln in fr.readlines() if ln]))
+        except UnicodeDecodeError:
+          print('Error for file', f)
+
       # Push corpus data to the database
       print("Sending data to the server for", len(meta), "documents and", len(tokens), "tokens")
 
