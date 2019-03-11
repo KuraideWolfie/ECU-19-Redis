@@ -6,7 +6,8 @@
   Description:
   This program reads in a significant amount of data from the Gutenberg corpora, processing the
   title, author, dates, and content of each document to generate a postings index for each unique
-  term in the corpora.
+  term in the corpora. It also generates a boolean retrieval index and allows boolean query parsing
+  including special operations such as not, and, and or.
 """
 
 from redis.exceptions import ConnectionError

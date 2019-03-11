@@ -43,7 +43,7 @@ The following instructions are useful for setting up a single node that will be 
 1. Create the cluster using redis-cli
   <br />`redis-cli --cluster create [node]:[port] ... [node]:[port] --cluster-replicas 1 -a [pass]`
 
-_(The following commands are prefixed with `redis-cli`.)_ You can get information about a node via the terminal on the node in question: `-p [port] cluster nodes | grep myself`. You can check on a node by using `--cluster check [node]` and reshard using `--cluster reshard [node] -a [pass]`.
+_(The following commands are prefixed with `redis-cli`.)_ You can get information about a node via the terminal on the node in question: `-p [port] cluster nodes | grep myself`. You can check on a node by using `--cluster check [node] [port]` and reshard using `--cluster reshard [node] -a [pass]`.
 
 ## Shortcutting a Cluster Check on a Node
 The following contents were put into a file - `chk.sh` - such that the Redis cluster's status could be checked. It was put onto two of the nodes - one worker, and one master. It prints the total and used memory for the Redis node, and prints the cluster's status afterward, including information about the number of keys per master and slot coverage.
