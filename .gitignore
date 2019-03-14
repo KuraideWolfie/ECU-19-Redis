@@ -1,11 +1,13 @@
-# Corpora files
-data/ign
-data/lic
-data/compressed-corpus
-data/cor
-
-# ECU Redis node information (SHOULD NOT BE PUBLIC)
-doc/redis-info.txt
-
+# Corpora files, ECU Redis node information, Python cache
+# ECU Redis nfo
 # Python cache
-__pycache__
+redis/data/ign
+redis/data/lic
+redis/data/compressed-corpus
+redis/data/cor
+redis/doc/redis-info.txt
+redis/src/__pycache__
+
+# Other files
+*.pdf
+*.html
