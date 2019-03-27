@@ -22,6 +22,7 @@ This task primarily centered around the creation of a 3-master, 3-worker Redis c
     + The API for redis-py is available at https://redis-py.readthedocs.io/en/latest/
 
 ## **Apache Lucene** and Sample Queries
+### Subtask 01: Sample Queries on Gutenberg
 This task primarily centered around the creation of an Apache Lucene program that could generate documents in field-value pairs, executed on a smaller subset of the Gutenberg Corpora formatted similarly to the Cranfield corpora. It was programmed using Java, and required the execution of a variety of queries, inclusive of, but not limited to boolean, term, and disjunction max queries. _(A program from the summer of 2018 was utilized to provide a start on this task.)_
 
 **Software**:
@@ -29,8 +30,21 @@ This task primarily centered around the creation of an Apache Lucene program tha
   + The `core` and `queryparser` libraries were utilized from the binary (JARs)
 + Java Development Kit 11 and Java Runtime Environment
 
+### Subtask 02: Sample Queries on Bibliography
+This task primarily centered around the modification of the aforementioned Lucene program, generating documents instead using bibliography fields from a provided document corpora. Before this could be done, cleaning of the bibliography was necessary using a script from GitHub.
+
+**Software**:
++ Apache Lucene 7.3.0+, `core` and `queryparser` binaries
++ Java Development Kit 11, Java Runtime Environment
++ Python v3.7.2
+  + `clean_bib` project on GitHub, available at https://github.com/ZacCat/clean_bib
+    + `sudo pip install bibtexparser` is a dependency
+
 ## **Other Resources**
 + https://tartarus.org/martin/PorterStemmer/
   + Porter Stemmer algorithm, stemming tokens such as 'stealing' --> 'steal'
 + http://www.gutenberg.org/files/
   + Gutenberg Corpora file repository, where all corpora files are accessible
+
+## Notes
+If `sudo pip install` doesn't work for install, you may try `python3 -m pip install <package>` instead. To install the needed packages locally, simply append the `--user` tag to the installation command.
