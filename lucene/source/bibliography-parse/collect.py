@@ -4,14 +4,20 @@
 import sys, os
 
 def __main__():
-  fields = []
+  fields = {}
 
   with open('./bibliography-fields.txt') as f:
+    key = ""
+
     for ln in f.readlines():
+      if '@' in ln:
+        key = ln[1:].split("{")[0]
+        fields[key] = []
+
       if '=' in ln:
-        field = ln.split('=')[0].strip()
-        if not field in fields: fields.append(field)
+        field = ln.split("=")[0].strip()
+        if not field in fields[key]: fields[key].append(field)
   
-  print(sorted(fields))
+  print(fields)
 
 __main__()

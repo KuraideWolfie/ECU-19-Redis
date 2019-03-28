@@ -7,11 +7,27 @@ from bibtexparser.customization import *
 import sys, getopt
 
 unwanted = ['interhash', 'intrahash', 'timestamp', 'biburl', 'added-at']
-wanted = ['ENTRYTYPE', 'ID',
-          'abstract', 'address', 'author', 'booktitle', 'chapter', 'edition',
-          'editor', 'howpublished', 'institution', 'isbn', 'journal', 'month',
-          'note', 'number', 'organization', 'pages', 'publisher', 'school',
-          'series', 'title', 'volume', 'year']
+wanted = {  '101': ['abstract', 'address', 'author', 'booktitle', 'chapter', 'edition', 'editor', 'howpublished',
+                'institution', 'isbn', 'journal', 'month', 'note', 'number', 'organization', 'pages', 'publisher',
+                'school', 'series', 'title', 'volume', 'year'],
+            'article': ['author', 'title', 'journal', 'year', 'number', 'pages', 'month', 'volume', 'abstract'],
+            'book': ['author', 'title', 'publisher', 'year', 'volume', 'series', 'address', 'edition', 'month',
+                'note', 'isbn', 'abstract'],
+            'booklet': ['title', 'author', 'howpublished', 'address', 'month', 'year', 'note', 'abstract'],
+            'conference': ['author', 'title', 'booktitle', 'year', 'editor', 'volume', 'series', 'pages', 'address',
+                'month', 'organization', 'publisher', 'note', 'abstract'],
+            'inbook': ['author', 'title', 'chapter', 'pages', 'publisher', 'year', 'volume', 'series', 'address',
+                'edition', 'month', 'note', 'abstract'],
+            'incollection': ['author', 'title', 'booktitle', 'publisher', 'year', 'editor', 'volume', 'series',
+                'chapter', 'pages', 'address', 'edition', 'month', 'note', 'abstract'],
+            'manual': ['title', 'author', 'organization', 'address', 'edition', 'month', 'year', 'note', 'abstract'],
+            'mastersthesis': ['author', 'title', 'school', 'year', 'address', 'month', 'note', 'abstract'],
+            'misc': ['author', 'title', 'howpublished', 'month', 'year', 'note', 'abstract'],
+            'phdthesis': ['author', 'title', 'school', 'year', 'address', 'month', 'note', 'abstract'],
+            'inproceedings': ['title', 'year', 'editor', 'volume', 'series', 'address', 'month', 'organization',
+                'publisher', 'note', 'abstract'],
+            'techreport': ['author', 'title', 'institution', 'year', 'number', 'address', 'month', 'note', 'abstract'],
+            'unpublished': ['author', 'title', 'note', 'month', 'year', 'abstract'] }
 
 # Let's define a function to customize our entries.
 # It takes a record and return this record.
@@ -27,7 +43,8 @@ def customizations(record):
     # for val in unwanted:
     #     record.pop(val, None)
     for val in list(record.keys()):
-        if not (val in wanted): record.pop(val, None)
+        dic = wanted[record['ENTRYTYPE']] if record['ENTRYTYPE'] in wanted else wanted['101']
+        if not (val in dic) and not (val in ['ID', 'ENTRYTYPE']): record.pop(val, None)
     # for v in [k for k in record.keys() if not k in wanted]:
     #     record.pop(v, None)
     return record
