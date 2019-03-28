@@ -34,6 +34,7 @@ This task primarily centered around the creation of an Apache Lucene program tha
 This task primarily centered around the modification of the aforementioned Lucene program, generating documents instead using bibliography fields from a provided document corpora. Before this could be done, cleaning of the bibliography was necessary using a script from GitHub.
 
 **Software**:
++ JBibTex v1.0.17, available at https://search.maven.org/search?q=g:org.jbibtex, https://github.com/jbibtex/jbibtex
 + Apache Lucene 7.3.0+, `core` and `queryparser` binaries
 + Java Development Kit 11, Java Runtime Environment
 + Python v3.7.2

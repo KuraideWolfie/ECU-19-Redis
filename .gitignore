@@ -9,5 +9,6 @@ redis/doc/redis-info.txt
 redis/src/__pycache__
 
 # Other files
+*._*
 *.pdf
 *.html

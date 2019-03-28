@@ -57,6 +57,11 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.simple.SimpleQueryParser;
+import org.jbibtex.BibTeXParser;
+import org.jbibtex.BibTeXDatabase;
+import org.jbibtex.Key;
+import org.jbibtex.BibTeXEntry;
+import org.jbibtex.Value;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -89,7 +94,7 @@ public class Lucene {
             for(int i=0; i<docs; i++) { tf[i] = 0; }
             df = -1; cf = -1; idf = -1;
             term = tok;
-            termObj = new Term("abstract", tok);
+            termObj = new Term(DEF_FIELD, tok);
         }
 
         /** Converts this token's information into a string.
@@ -108,12 +113,13 @@ public class Lucene {
     }
 
     // TOP_RESULT_COUNT is the number of results to be fetched by the searcher
+    // DEF_FIELD is the default field to analyze, get term information from, and use with LToken
     public static final int TOP_RESULT_COUNT = 20;
+    public static final String DEF_FIELD = "abstract";
 
     /* PROG_TRACE prints some simple, preliminary tracing statements to ensure
      * proper program execution */
     // corpus is the location of the corpus to be read on the disk
-    // corpus_list is a list of all the entries in the corpus
     // index specifies where the location of the index should be
     // heap specifies where Heaps' Law data, if desired, should be stored
     // om is the openmode for the index, and is CREATE_OR_APPEND by default
@@ -124,7 +130,6 @@ public class Lucene {
      * generations of the list */
     public static boolean PROG_TRACE = false;
     static String corpus = "", index = "./index/", heap = "";
-    static ArrayList<String> corpus_list = new ArrayList<>();
     static ArrayList<LToken> LTL = null;
     static Heaper heaper = null;
     static IndexWriterConfig.OpenMode om = IndexWriterConfig.OpenMode.CREATE_OR_APPEND;
@@ -193,8 +198,8 @@ public class Lucene {
             iSearch = new IndexSearcher(reader);
 
             switch(parserType) {
-                case 0: qParse = new QueryParser("abstract", analyzer); break;
-                case 1: sqParse = new SimpleQueryParser(analyzer, "abstract"); break;
+                case 0: qParse = new QueryParser(DEF_FIELD, analyzer); break;
+                case 1: sqParse = new SimpleQueryParser(analyzer, DEF_FIELD); break;
                 default:
                     System.out.println("ERR: Unknown query parser type!");
                     reader.close();
@@ -293,71 +298,32 @@ public class Lucene {
     public static ArrayList<Document> corpusProcess() {
         ArrayList<Document> L = new ArrayList<>();
 
-        /* Iterate through all the files found to be in the corpus, processing
-         * their text and parsing them via the Cranfield specification */
+        /* Iterate through all the entries found in the corpus. This is done using a BibTexParser from
+         * the jbibtex library to parse the bibliography, and then iterating through the fields. */
         try {
-            java.util.Collections.sort(corpus_list);
+            BibTeXParser parse = new BibTeXParser();
+            BibTeXDatabase database = parse.parse(new BufferedReader(new FileReader(corpus)));
 
-            // fData stores the contents of the bibtex file
-            // index stores where each bibliography entry begins in fData
-            ArrayList<String> fData = readFile(corpus);
-            ArrayList<Integer> index = new ArrayList<>();
-
-            /* Index at which indices in fData each bibliography entry begins. */
-            for(int i=0; i<fData.size(); i++)
-                if (fData.get(i).charAt(0) == '@')
-                    index.add(i);
-
-            for(int f = 1; f <= index.size(); f++) {
-                // tmp is a string for building document content
-                // doc is the Document to be added to the IndexWriter
-                // cont and stop are where to begin and end document processing in fData
-                String tmp = "";
+            java.util.Map<Key, BibTeXEntry> map = database.getEntries();
+            for(BibTeXEntry ent : map.values()) {
                 Document doc = new Document();
-                int cont = index.get(f-1),
-                    stop = (f != index.size() ? index.get(f) : fData.size());
 
-                // Process the first line of the bibliography entry, containing the type and key
-                // The first line should look something like '@<type>{<key>,'
-                String[] bits = fData.get(cont).substring(1).replace(",", "").split("\\{");
-                doc.add(new TextField("type", bits[0], Field.Store.YES));
-                doc.add(new StoredField("key", bits[1]));
+                doc.add(new TextField("type", ent.getType().getValue(), Field.Store.YES));
+                doc.add(new TextField("key", ent.getKey().getValue(), Field.Store.YES));
 
-                for(int i = cont+1; i < stop; i++) {
-                    String field = fData.get(i).split("=")[0].trim();
-                    tmp = "";
-
-                    /* If the present field is a single-line, parse the line itself; however, if it
-                     * isn't, then read until the ending brace is reached. (There may be cases where
-                     * the ending brace is on its own line.) */
-                    if (fData.get(i).contains("{") && fData.get(i).contains("}")) {
-                        int brace_beg = fData.get(i).indexOf("{"),
-                            brace_end = fData.get(i).indexOf("}");
-                        tmp = fData.get(i).substring(brace_beg+1, brace_end);
-                    }
-                    else {
-                        while(!fData.get(i).contains("}")) {
-                            tmp += " " + fData.get(i);
-                            i++;
-                        }
-                        String[] spl = fData.get(i).split("\\}");
-                        if (spl.length > 0) { tmp += spl[0]; }
-                    }
-
-                    if (field.equals("abstract")) {
-                        /* Term vectors are important for getting term stats from the index,
-                         * so a custom field has to be generated for the abstract. */
+                java.util.Map<Key,Value> fields = ent.getFields();
+                for(Key key : fields.keySet()) {
+                    if (key.getValue().equals("abstract")) {
                         FieldType fType = new FieldType();
                         fType.setStored(true);
                         fType.setTokenized(true);
                         fType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
                         fType.setStoreTermVectors(true);
                         fType.setStoreTermVectorPositions(true);
-                        doc.add(new Field("abstract", tmp, fType));            
+                        doc.add(new Field(key.getValue(), fields.get(key).toUserString(), fType));
+                        continue;
                     }
-                    else {
-                        doc.add(new TextField(field, tmp, Field.Store.YES));
-                    }
+                    doc.add(new TextField(key.getValue(), fields.get(key).toUserString(), Field.Store.YES));
                 }
 
                 if (PROG_TRACE) { printTrace("Doc added: "+doc.get("title")); }
@@ -369,7 +335,7 @@ public class Lucene {
                 if (heaper != null) {
                     // ts is the TokenStream for the document body
                     // cta is used for accessing the text of the tokens in the TokenStream
-                    TokenStream ts = analyzer.tokenStream(null, doc.getField("content").stringValue());
+                    TokenStream ts = analyzer.tokenStream(null, doc.getField(DEF_FIELD).stringValue());
                     CharTermAttribute cta = null;
 
                     /* Add a document to the heaper, reset the TokenStream, and then iterate
@@ -394,7 +360,7 @@ public class Lucene {
                 heaper.save(heap);
             }
         }
-        catch(IOException e) {
+        catch(Exception e) {
             System.err.println(e.getMessage());
         }
 
@@ -435,7 +401,7 @@ public class Lucene {
 
             /* Print the top results of the query. The documetn ID, score
              * against the query, and document title are all printed */
-            System.out.printf("%7s : %10s : %s\n", "ID", "Score", "Title");
+            System.out.printf("%9s : %10s : %s\n", "ID", "Score", "Title");
             result = iSearch.search(query, TOP_RESULT_COUNT).scoreDocs;
             for(ScoreDoc doc : result)
                 System.out.printf("Doc %5d : %10f : %s\n", doc.doc,
@@ -528,7 +494,8 @@ public class Lucene {
                  * doesn't contain that term presently; elsewise, the term's
                  * tf for the document is updated using the pEnum instance */
                 for(int i=0; i<reader.numDocs(); i++) {
-                    tEnum = reader.getTermVector(i, "content").iterator();
+                    if (reader.document(i).getField(DEF_FIELD) == null) { continue; }
+                    tEnum = reader.getTermVector(i, DEF_FIELD).iterator();
 
                     while(tEnum.next() != null) {
                         String tmp = tEnum.term().utf8ToString();
@@ -586,7 +553,7 @@ public class Lucene {
 
             if (fname != null) { w.close(); }
         }
-        catch(Exception e) { cmdTermUsage(); System.out.println(e.getMessage()); }
+        catch(Exception e) { cmdTermUsage(); System.out.println(e.getMessage()); e.printStackTrace(); }
     }
 
     /** Executes the !explain command for the system, printing information about
@@ -647,27 +614,6 @@ public class Lucene {
     public static String dirCheck(String dir) {
         if (dir.contains("\\")) { dir = dir.replaceAll("\\", "/"); }
         return dir + (dir.charAt(dir.length()-1) != '/' ? "/" : "");
-    }
-
-    /** Reads in all the lines of a raw text file, putting those lines into a
-      * list that gets returned.
-      * @param fname The name of the file to open and read
-      * @return The list of lines of the file (excluding blank lines) */
-    public static ArrayList<String> readFile(String fname) throws IOException {
-        // line is temporary storage for a line read from teh file
-        // file is a list of all the lines in the file
-        String line;
-        ArrayList<String> file = new ArrayList<>();
-
-        // Iterate through all the lines of the file, adding them if they aren't
-        // blank lines. Return the final list of lines afterward
-        BufferedReader r = new BufferedReader(new FileReader(fname));
-        while((line = r.readLine()) != null)
-            if (line.length() > 0)
-                file.add(line);
-        r.close();
-
-        return file;
     }
 
     /** Writes a single token both to the screen and to the writer specified.
