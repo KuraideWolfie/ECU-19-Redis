@@ -11,24 +11,8 @@
  * - cf, tf, idf, and df information for corpus tokens
  * - Heaps' Law coordinate data for graphing (verification of Heaps' Law)
  *
- * For the purposes of this project, a single Document will contain these
- * fields (following Cranfield specification):
- * - id:        A unique numerical identifier
- * - title:     The title of the document (.T)
- * - author:    The author of the document (.A)
- * - bib:       The bibliography of the document (.B)
- * - content:   The content of the document itself (.W)
- *
- * To parse the documents with these fields, the following format (that of the
- * Cranfield Collection) is assumed to be followed:
- * .T
- * Title of the document
- * .A
- * Author of the document
- * .B
- * Bibliography of the document
- * .W
- * Content of the document, either on one line or numerous lines
+ * For the purposes of this project version, the fields of a bibtex file are parsed,
+ * where a field is similar to the following form: '<field> = {<content>}'.
  *
  * The following are special commands recognized by the system during querying.
  * They should be prefixed by '!' for them to work appropriately. If you wish
@@ -105,7 +89,7 @@ public class Lucene {
             for(int i=0; i<docs; i++) { tf[i] = 0; }
             df = -1; cf = -1; idf = -1;
             term = tok;
-            termObj = new Term("content", tok);
+            termObj = new Term("abstract", tok);
         }
 
         /** Converts this token's information into a string.
@@ -124,7 +108,7 @@ public class Lucene {
     }
 
     // TOP_RESULT_COUNT is the number of results to be fetched by the searcher
-    public static final int TOP_RESULT_COUNT = 100;
+    public static final int TOP_RESULT_COUNT = 20;
 
     /* PROG_TRACE prints some simple, preliminary tracing statements to ensure
      * proper program execution */
@@ -209,8 +193,8 @@ public class Lucene {
             iSearch = new IndexSearcher(reader);
 
             switch(parserType) {
-                case 0: qParse = new QueryParser("content", analyzer); break;
-                case 1: sqParse = new SimpleQueryParser(analyzer, "content"); break;
+                case 0: qParse = new QueryParser("abstract", analyzer); break;
+                case 1: sqParse = new SimpleQueryParser(analyzer, "abstract"); break;
                 default:
                     System.out.println("ERR: Unknown query parser type!");
                     reader.close();
@@ -330,60 +314,51 @@ public class Lucene {
                 // cont and stop are where to begin and end document processing in fData
                 String tmp = "";
                 Document doc = new Document();
-                int stop = (f != index.size() ? index.get(f-1) : fData.size()),
-                    cont = (f != 1 ? index.get(f-2) : 0);
+                int cont = index.get(f-1),
+                    stop = (f != index.size() ? index.get(f) : fData.size());
 
                 // Process the first line of the bibliography entry, containing the type and key
                 // The first line should look something like '@<type>{<key>,'
                 String[] bits = fData.get(cont).substring(1).replace(",", "").split("\\{");
                 doc.add(new TextField("type", bits[0], Field.Store.YES));
-                doc.add(new TextField("key", bits[1], Field.Store.YES));
-
-                System.out.println(bits[0]+" "+bits[1]);
-                if (!bits[0].equals("")) { continue; }
+                doc.add(new StoredField("key", bits[1]));
 
                 for(int i = cont+1; i < stop; i++) {
+                    String field = fData.get(i).split("=")[0].trim();
+                    tmp = "";
 
+                    /* If the present field is a single-line, parse the line itself; however, if it
+                     * isn't, then read until the ending brace is reached. (There may be cases where
+                     * the ending brace is on its own line.) */
+                    if (fData.get(i).contains("{") && fData.get(i).contains("}")) {
+                        int brace_beg = fData.get(i).indexOf("{"),
+                            brace_end = fData.get(i).indexOf("}");
+                        tmp = fData.get(i).substring(brace_beg+1, brace_end);
+                    }
+                    else {
+                        while(!fData.get(i).contains("}")) {
+                            tmp += " " + fData.get(i);
+                            i++;
+                        }
+                        String[] spl = fData.get(i).split("\\}");
+                        if (spl.length > 0) { tmp += spl[0]; }
+                    }
+
+                    if (field.equals("abstract")) {
+                        /* Term vectors are important for getting term stats from the index,
+                         * so a custom field has to be generated for the abstract. */
+                        FieldType fType = new FieldType();
+                        fType.setStored(true);
+                        fType.setTokenized(true);
+                        fType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
+                        fType.setStoreTermVectors(true);
+                        fType.setStoreTermVectorPositions(true);
+                        doc.add(new Field("abstract", tmp, fType));            
+                    }
+                    else {
+                        doc.add(new TextField(field, tmp, Field.Store.YES));
+                    }
                 }
-
-                /* Iterate through the text of the document until the milestone
-                 * headers are located. Each header indexes the prior's content,
-                 * with the exception of ".T", which does nothing. At the end,
-                 * the document content field is added, as well as a unique ID
-                 * field for future identification */
-                // for(int i=0; i<fData.size(); i++)
-                //     switch(fData.get(i)) {
-                //         case ".T": break; // Do nothing
-                //         case ".A":
-                //             doc.add(new TextField("title", tmp.trim(),
-                //                 Field.Store.YES));
-                //             tmp = "";
-                //             break;
-                //         case ".B":
-                //             doc.add(new TextField("author", tmp.trim(),
-                //                 Field.Store.YES));
-                //             tmp = "";
-                //             break;
-                //         case ".W":
-                //             doc.add(new StringField("bib", tmp.trim(),
-                //                 Field.Store.YES));
-                //             tmp = "";
-                //             break;
-                //         default:
-                //             tmp += " " + fData.get(i);
-                //     }
-                // doc.add(new StoredField("id", f));
-
-                /* Term vectors are important for getting term stats from the
-                 * index, so a custom field has to be generated for the body
-                 * of a document */
-                FieldType fType = new FieldType();
-                fType.setStored(true);
-                fType.setTokenized(true);
-                fType.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS);
-                fType.setStoreTermVectors(true);
-                fType.setStoreTermVectorPositions(true);
-                doc.add(new Field("content", tmp, fType));
 
                 if (PROG_TRACE) { printTrace("Doc added: "+doc.get("title")); }
                 L.add(doc);
@@ -463,7 +438,7 @@ public class Lucene {
             System.out.printf("%7s : %10s : %s\n", "ID", "Score", "Title");
             result = iSearch.search(query, TOP_RESULT_COUNT).scoreDocs;
             for(ScoreDoc doc : result)
-                System.out.printf("Doc %3d : %10f : %s\n", doc.doc,
+                System.out.printf("Doc %5d : %10f : %s\n", doc.doc,
                     doc.score, iSearch.doc(doc.doc).get("title"));
         }
 
