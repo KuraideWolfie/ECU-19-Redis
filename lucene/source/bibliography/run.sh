@@ -6,6 +6,11 @@ javac -cp ".:../lib/lucene-queryparser-7.3.0.jar:../lib/lucene-core-7.3.0.jar" L
 
 jar -cvfm ../Lucene.jar ../manifest.txt -C ../out .
 
-# java -jar Lucene.jar ./cranform/ -index ./index/ -trace
+read -p "Compilation Ends Here"
+clear
+cd ..
 
-rm -d -r ../out
+# java -jar Lucene.jar ./cranform/ -index ./index/ -trace
+java -jar Lucene.jar ../corpus/bibliography.txt -index ./index -trace -regen
+
+rm -d -r out

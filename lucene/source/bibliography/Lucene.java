@@ -3,6 +3,7 @@
  * Author:  Matthew Morgan
  * Date:    24 May 2018   : Initial
  *          18 March 2019 : Added Lucene Query Examples
+ *          28 March 2019 : Modified for Usage with Bibtex File
  * Description:
  * This class provides a basic implementation of the Apache Lucene 7.3.0 API.
  * It was primarily made to demonstrate Lucene's capabilities on a basic level,
@@ -174,6 +175,7 @@ public class Lucene {
         if (PROG_TRACE) {
             printTrace("Cor|Ind|Hep: '"+corpus+"', '"+index+"', '"+heap+"'");
             printTrace("Parser     : "+parserType);
+            printTrace("New Index  : "+(om == IndexWriterConfig.OpenMode.CREATE));
         }
 
         try {
@@ -191,7 +193,7 @@ public class Lucene {
              * The corpus may not be processed if the index directory exists.
              * This is meant to save CPU time if the corpus has been processed
              * once before (and prevent duplicated documents in the index) */
-            if (!DirectoryReader.indexExists(directory) && om != IndexWriterConfig.OpenMode.CREATE) {
+            if (!DirectoryReader.indexExists(directory) || om == IndexWriterConfig.OpenMode.CREATE) {
                 iWriteConfig = new IndexWriterConfig(analyzer);
                 iWriteConfig.setOpenMode(om);
                 iWrite = new IndexWriter(directory, iWriteConfig);
@@ -288,7 +290,7 @@ public class Lucene {
             // Print usage information for the program
             System.err.println(e.getMessage());
             System.err.print(
-                "usage: java Lucene <corpus> [options]\n"+
+                "usage: java Lucene <bibfile> [options]\n"+
                 "Options:\n"+
                 "  -index dir   Change where to store the index\n"+
                 "  -regen       Overwrite the index\n"+
@@ -307,58 +309,70 @@ public class Lucene {
     public static ArrayList<Document> corpusProcess() {
         ArrayList<Document> L = new ArrayList<>();
 
-        /* Get the list of files in the corpus directory, removing any entries
-         * afterward that have filenames that start with a period */
-        corpus_list = recurseDirectory(corpus);
-
-        for(int i=corpus_list.size()-1; i>= 0; i--) {
-            String fname = corpus_list.get(i);
-            fname = fname.substring(fname.lastIndexOf('/')+1);
-
-            if (fname.charAt(0) == '.')
-                corpus_list.remove(i);
-        }
-
         /* Iterate through all the files found to be in the corpus, processing
          * their text and parsing them via the Cranfield specification */
         try {
             java.util.Collections.sort(corpus_list);
 
-            for(int f = 0; f < corpus_list.size(); f++) {
+            // fData stores the contents of the bibtex file
+            // index stores where each bibliography entry begins in fData
+            ArrayList<String> fData = readFile(corpus);
+            ArrayList<Integer> index = new ArrayList<>();
+
+            /* Index at which indices in fData each bibliography entry begins. */
+            for(int i=0; i<fData.size(); i++)
+                if (fData.get(i).charAt(0) == '@')
+                    index.add(i);
+
+            for(int f = 1; f <= index.size(); f++) {
                 // tmp is a string for building document content
                 // doc is the Document to be added to the IndexWriter
-                // fData is the full document's set of lines
+                // cont and stop are where to begin and end document processing in fData
                 String tmp = "";
                 Document doc = new Document();
-                ArrayList<String> fData = readFile(corpus_list.get(f));
+                int stop = (f != index.size() ? index.get(f-1) : fData.size()),
+                    cont = (f != 1 ? index.get(f-2) : 0);
+
+                // Process the first line of the bibliography entry, containing the type and key
+                // The first line should look something like '@<type>{<key>,'
+                String[] bits = fData.get(cont).substring(1).replace(",", "").split("\\{");
+                doc.add(new TextField("type", bits[0], Field.Store.YES));
+                doc.add(new TextField("key", bits[1], Field.Store.YES));
+
+                System.out.println(bits[0]+" "+bits[1]);
+                if (!bits[0].equals("")) { continue; }
+
+                for(int i = cont+1; i < stop; i++) {
+
+                }
 
                 /* Iterate through the text of the document until the milestone
                  * headers are located. Each header indexes the prior's content,
                  * with the exception of ".T", which does nothing. At the end,
                  * the document content field is added, as well as a unique ID
                  * field for future identification */
-                for(int i=0; i<fData.size(); i++)
-                    switch(fData.get(i)) {
-                        case ".T": break; // Do nothing
-                        case ".A":
-                            doc.add(new TextField("title", tmp.trim(),
-                                Field.Store.YES));
-                            tmp = "";
-                            break;
-                        case ".B":
-                            doc.add(new TextField("author", tmp.trim(),
-                                Field.Store.YES));
-                            tmp = "";
-                            break;
-                        case ".W":
-                            doc.add(new StringField("bib", tmp.trim(),
-                                Field.Store.YES));
-                            tmp = "";
-                            break;
-                        default:
-                            tmp += " " + fData.get(i);
-                    }
-                doc.add(new StoredField("id", f));
+                // for(int i=0; i<fData.size(); i++)
+                //     switch(fData.get(i)) {
+                //         case ".T": break; // Do nothing
+                //         case ".A":
+                //             doc.add(new TextField("title", tmp.trim(),
+                //                 Field.Store.YES));
+                //             tmp = "";
+                //             break;
+                //         case ".B":
+                //             doc.add(new TextField("author", tmp.trim(),
+                //                 Field.Store.YES));
+                //             tmp = "";
+                //             break;
+                //         case ".W":
+                //             doc.add(new StringField("bib", tmp.trim(),
+                //                 Field.Store.YES));
+                //             tmp = "";
+                //             break;
+                //         default:
+                //             tmp += " " + fData.get(i);
+                //     }
+                // doc.add(new StoredField("id", f));
 
                 /* Term vectors are important for getting term stats from the
                  * index, so a custom field has to be generated for the body
@@ -422,107 +436,26 @@ public class Lucene {
         Scanner kbd = new Scanner(System.in);
         String rawQuery = "";
 
-        // que stores all the queries to be executed on the index
-        Query[] que = {
-            new MatchAllDocsQuery(),
-            new TermQuery(new Term("content", "alligator")),
-            new TermQuery(new Term("content", "beautiful")),
-            new TermQuery(new Term("content", "chairman")),
-            new TermQuery(new Term("content", "eulogies")),
-            new TermQuery(new Term("content", "voyage")),
-            new TermQuery(new Term("title", "the")),
-            new TermQuery(new Term("author", "william")),
-            null, // (NOT alligator) AND (NOT chairman)
-            null, // alligator OR chairman
-            new PrefixQuery(new Term("content", "ancest")),
-            new PrefixQuery(new Term("content", "voyage")),
-            new WildcardQuery(new Term("content", "b?ats")),
-            new WildcardQuery(new Term("author", "s*n")),
-            new FuzzyQuery(new Term("content", "twilit")),
-            new FuzzyQuery(new Term("title", "gods")),
-            new RegexpQuery(new Term("title", "[0-9]{4}")),
-            new RegexpQuery(new Term("content", "account[a-z]+")),
-            new RegexpQuery(new Term("author", "[a-z]")),
-            null,
-            null,
-            null,
-            null,
-            new TermRangeQuery("title", new BytesRef("1800"), new BytesRef("1899"), true, true),
-            new TermRangeQuery("author", new BytesRef("b"), new BytesRef("c"), true, true),
-            null
-        };
-
-        BooleanQuery.Builder builder = new BooleanQuery.Builder();
-        builder.add(new MatchAllDocsQuery(), BooleanClause.Occur.MUST)
-               .add(new BooleanClause(que[1], BooleanClause.Occur.MUST_NOT))
-               .add(new BooleanClause(que[3], BooleanClause.Occur.MUST_NOT));
-        que[8] = builder.build();
-
-        builder = new BooleanQuery.Builder();
-        builder.add(new BooleanClause(que[1], BooleanClause.Occur.SHOULD))
-               .add(new BooleanClause(que[3], BooleanClause.Occur.SHOULD));
-        que[9] = builder.build();
-
-        PhraseQuery.Builder pq_builder = new PhraseQuery.Builder();
-        pq_builder.add(new Term("content", "not"), 0)
-                  .add(new Term("content", "kind"), 2);
-        que[19] = pq_builder.build();
-
-        pq_builder = new PhraseQuery.Builder();
-        pq_builder.add(new Term("content", "narrative"), 0)
-                  .add(new Term("content", "the"), 2);
-        que[20] = pq_builder.build();
-
-        MultiPhraseQuery.Builder mpq_builder = new MultiPhraseQuery.Builder();
-        mpq_builder.add(new Term("content", "not"))
-                   .add(new Term[] { new Term("content", "kind"), new Term("content", "cheery"), new Term("content", "generous") }, 1);
-        que[21] = mpq_builder.build();
-
-        mpq_builder = new MultiPhraseQuery.Builder();
-        mpq_builder.add(new Term[] { new Term("title", "of"), new Term("title", "to") })
-                   .add(new Term("title", "the"));
-        que[22] = mpq_builder.build();
-
-        ArrayList<Query> dmq_bits = new ArrayList<>();
-        BooleanQuery.Builder bq = new BooleanQuery.Builder(), bq_bit = new BooleanQuery.Builder();
-        bq_bit.add(new TermQuery(new Term("title", "stories")), BooleanClause.Occur.SHOULD)
-              .add(new TermQuery(new Term("title", "narrative")), BooleanClause.Occur.SHOULD);
-        bq.add(bq_bit.build(), BooleanClause.Occur.MUST)
-          .add(new TermQuery(new Term("title", "life")), BooleanClause.Occur.SHOULD)
-          .add(new TermQuery(new Term("title", "little")), BooleanClause.Occur.SHOULD);
-        dmq_bits.add(bq.build());
-        dmq_bits.add(new TermQuery(new Term("content", "fruitful")));
-        que[25] = new DisjunctionMaxQuery(dmq_bits, (float) 1.25);
-
-        int index = 0;
-
         /* Given that querying only terminates when the special command is
          * reached, there is no suitable condition for this loop; therefore,
          * it runs infinitely unless the function is forced to return */
         while(true) {
-            if (index < que.length) {
-                query = que[index]; index++;
-                System.out.println("Executing "+query.toString());
+            System.out.print("\nQuery > ");
+            rawQuery = kbd.nextLine();
+            if (rawQuery.charAt(0) == '!' && rawQuery.charAt(1) != '!') {
+                // If the '!stop' command is found, break from the loop
+                // If other commands are found, skip the rest of the loop body
+                if (queryProcessSpecial(rawQuery)) { break; }
+                else { continue; }
             }
-            else {
-                break;
-                // System.out.print("\nQuery > ");
-                // rawQuery = kbd.nextLine();
-                // if (rawQuery.charAt(0) == '!' && rawQuery.charAt(1) != '!') {
-                //     // If the '!stop' command is found, break from the loop
-                //     // If other commands are found, skip the rest of the loop body
-                //     if (queryProcessSpecial(rawQuery)) { break; }
-                //     else { continue; }
-                // }
-                // else if (rawQuery.charAt(1) == '!')
-                //     rawQuery = rawQuery.substring(1);
+            else if (rawQuery.charAt(1) == '!')
+                rawQuery = rawQuery.substring(1);
 
-                // // The query is parsed by the appropriate parser
-                // switch(parserType) {
-                //     default:
-                //     case 0: query = qParse.parse(rawQuery); break;
-                //     case 1: query = sqParse.parse(rawQuery); break;
-                // }
+            // The query is parsed by the appropriate parser
+            switch(parserType) {
+                default:
+                case 0: query = qParse.parse(rawQuery); break;
+                case 1: query = sqParse.parse(rawQuery); break;
             }
 
             /* Print the top results of the query. The documetn ID, score
@@ -739,36 +672,6 @@ public class Lucene {
     public static String dirCheck(String dir) {
         if (dir.contains("\\")) { dir = dir.replaceAll("\\", "/"); }
         return dir + (dir.charAt(dir.length()-1) != '/' ? "/" : "");
-    }
-
-    /**
-     * Recursively digs through a folder to create a list of all files in the
-     * given parent directory.
-     * @param directory The directory being recursed to generate filenames
-     * @return A list of strings representing all the filenames
-     */
-    public static ArrayList<String> recurseDirectory(String directory) {
-        ArrayList<String> L = new ArrayList<>();
-        File dir = new File(directory);
-
-        if (dir.isDirectory()) {
-            // For every path in the directory, if the path is a directory, recurse
-            // down to locate more files; otherwise, add the pathname to the list
-            // of files, L
-            for(File f : dir.listFiles())
-                if (f.isDirectory())
-                    L.addAll(recurseDirectory(directory+f.getName()+"/"));
-                else
-                    L.add(directory+f.getName());
-
-        }
-        else {
-            // ERROR: A directory wasn't specified
-            System.err.printf("ERR: '%s' is not a directory!\n", directory);
-            System.exit(1);
-        }
-        
-        return L;
     }
 
     /** Reads in all the lines of a raw text file, putting those lines into a
