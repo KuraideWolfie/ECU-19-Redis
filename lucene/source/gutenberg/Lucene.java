@@ -174,6 +174,7 @@ public class Lucene {
         if (PROG_TRACE) {
             printTrace("Cor|Ind|Hep: '"+corpus+"', '"+index+"', '"+heap+"'");
             printTrace("Parser     : "+parserType);
+            printTrace("New Index  : "+(om == IndexWriterConfig.OpenMode.CREATE));
         }
 
         try {
@@ -191,7 +192,7 @@ public class Lucene {
              * The corpus may not be processed if the index directory exists.
              * This is meant to save CPU time if the corpus has been processed
              * once before (and prevent duplicated documents in the index) */
-            if (!DirectoryReader.indexExists(directory) && om != IndexWriterConfig.OpenMode.CREATE) {
+            if (!DirectoryReader.indexExists(directory) || om == IndexWriterConfig.OpenMode.CREATE) {
                 iWriteConfig = new IndexWriterConfig(analyzer);
                 iWriteConfig.setOpenMode(om);
                 iWrite = new IndexWriter(directory, iWriteConfig);
