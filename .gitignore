@@ -8,6 +8,14 @@ redis/data/cor
 redis/doc/redis-info.txt
 redis/src/__pycache__
 
+# Apache Lucene index files
+# Compiled JAR
+lucene/source/*/index/
+lucene/source/Lucene.jar
+
+# Bibliography files
+bib/dat/
+
 # Other files
 *._*
 *.pdf

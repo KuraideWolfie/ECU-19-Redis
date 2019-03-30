@@ -41,11 +41,21 @@ This task primarily centered around the modification of the aforementioned Lucen
   + `clean_bib` project on GitHub, available at https://github.com/ZacCat/clean_bib
     + `sudo pip install bibtexparser` is a dependency
 
+## **Computer Science Corpora** and MongoDB, ElasticSearch, and Neo4J
+...
+
+**Software**:
++ Python v3.7.2
+  + `sudo pip install beautifulsoup4` for web-scraping
+  + `sudo pip install requests` for fetching files from websites
+
 ## **Other Resources**
 + https://tartarus.org/martin/PorterStemmer/
   + Porter Stemmer algorithm, stemming tokens such as 'stealing' --> 'steal'
 + http://www.gutenberg.org/files/
   + Gutenberg Corpora file repository, where all corpora files are accessible
++ https://liinwww.ira.uka.de/bibliography/
+  + Computer Science Bibliography collection; numerous download links are broken
 
 ## Notes
 If `sudo pip install` doesn't work for install, you may try `python3 -m pip install <package>` instead. To install the needed packages locally, simply append the `--user` tag to the installation command.
