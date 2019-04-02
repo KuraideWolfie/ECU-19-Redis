@@ -1,4 +1,4 @@
-# ECU NSF Research Project
+# ECU NSF Project
 **Title**: ECU-19-Redis
 <br />
 **Author**: Matthew Morgan
