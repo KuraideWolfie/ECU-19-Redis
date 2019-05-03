@@ -56,6 +56,8 @@ This task primarily centered around the modification of the aforementioned Lucen
   + Gutenberg Corpora file repository, where all corpora files are accessible
 + https://liinwww.ira.uka.de/bibliography/
   + Computer Science Bibliography collection; numerous download links are broken
++ https://dblp.uni-trier.de/
+  + DBLP file download site; contains a PDF explaining the XML format
 
 ## Notes
 If `sudo pip install` doesn't work for install, you may try `python3 -m pip install <package>` instead. To install the needed packages locally, simply append the `--user` tag to the installation command.
